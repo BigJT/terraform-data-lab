@@ -1,0 +1,161 @@
+PS C:\practice\terraform>
+
+@'
+terraform {
+  required_version = ">= 1.8"
+}
+'@ | Set-Content providers.tf
+
+
+@'
+resource "terraform_data" "vm" {
+  input = {
+    name        = "vm01"
+    location    = "uksouth"
+    environment = "dev"
+    os          = "linux"
+    cpu         = 4
+    memory      = 16
+    ip          = "10.0.1.5"
+  }
+}
+'@ | Set-Content main.tf
+
+
+terraform init
+terraform apply
+
+
+terraform console
+> terraform_data.vm
+{
+  "id" = "04d2ffab-5a73-5f82-c96d-55d6e9a847c7"
+  "input" = {
+    "cpu" = 4
+    "environment" = "dev"
+    "ip" = "10.0.1.5"
+    "location" = "uksouth"
+    "memory" = 16
+    "name" = "vm01"
+    "os" = "linux"
+  }
+  "output" = {
+    "cpu" = 4
+    "environment" = "dev"
+    "ip" = "10.0.1.5"
+    "location" = "uksouth"
+    "memory" = 16
+    "name" = "vm01"
+    "os" = "linux"
+  }
+  "triggers_replace" = null
+}
+> terraform_data.vm.input.name
+"vm01"
+> terraform_data.vm.input.cpu
+4
+> terraform_data.vm.output.cpu
+4
+> upper(terraform_data.vm.output.name)
+"VM01"
+> format(
+:  "VM %s runs %s in %s",
+:  terraform_data.vm.output.name,
+:  terraform_data.vm.output.os,
+:  terraform_data.vm.output.location
+: )
+"VM vm01 runs linux in uksouth"
+
+PS C:\practice\terraform> terraform state list
+terraform_data.vm
+PS C:\practice\terraform>
+
+
+
+
+
+
+
+C:\practice\terraform
+
+@'
+terraform {
+  required_version = ">= 1.8"
+}
+'@ | Set-Content providers.tf
+
+
+
+@'
+resource "terraform_data" "vm" {
+  input = {
+    name        = "vm01"
+    location    = "uksouth"
+    environment = "dev"
+    os          = "linux"
+    cpu         = 4
+    memory      = 16
+    ip          = "10.0.1.5"
+  }
+}
+'@ | Set-Content main.tf
+
+terraform init
+terraform apply
+
+terraform console
+> terraform_data.vm
+
+You'll see the entire object.
+
+Imagine this json file.
+
+@'
+{
+  "vms": [
+    {
+      "name": "vm01",
+      "size": "Standard_B2s",
+      "location": "uksouth"
+    },
+    {
+      "name": "vm02",
+      "size": "Standard_B2s",
+      "location": "uksouth"
+    }
+  ]
+}
+'@ | Set-Content data/vms.json
+
+
+@'
+locals {
+
+  vms = jsondecode(
+    file("${path.module}/data/vms.json")
+  )
+
+}
+'@ | Set-Content locals.tf
+
+
+terraform console
+> local.vms
+{
+  "vms" = [
+    {
+      "location" = "uksouth"
+      "name" = "vm01"
+      "size" = "Standard_B2s"
+    },
+    {
+      "location" = "uksouth"
+      "name" = "vm02"
+      "size" = "Standard_B2s"
+    },
+  ]
+}
+>
+
+> terraform_data.vm.output.name
+"vm01"

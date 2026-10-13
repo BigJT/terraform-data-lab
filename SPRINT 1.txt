@@ -1,0 +1,334 @@
+SPRINT 1
+
+Good. You're at the point where **Sprint 1 has been partially completed**: you have `terraform_data.vm`, and you've also added the JSON-reading `locals` block.
+
+Your current configuration is effectively:
+
+C:\practice\TERRAFORM
+│
+├── locals.tf
+├── main.tf
+├── providers.tf
+└── data\
+    └── vms.json
+
+# One important check
+Your locals.tf references:	file("${path.module}/data/vms.json")
+So make sure this exists:	Get-ChildItem .\data\vms.json
+
+# Step 1 — initialise Terraform
+From:				PS C:\practice\TERRAFORM>
+run:				terraform init
+You should see Terraform initialise successfully.
+
+# Step 2 — validate
+terraform validate
+Expected:	Success! The configuration is valid.
+
+# Step 3 — create the fake VM
+terraform plan
+You should see something similar to:
+# terraform_data.vm will be created
++ resource "terraform_data" "vm" {
+    + id     = (known after apply)
+    + input  = {
+        + "cpu"         = 4
+        + "environment" = "dev"
+        + "ip"          = "10.0.1.5"
+        + "location"    = "uksouth"
+        + "memory"      = 16
+        + "name"        = "vm01"
+        + "os"          = "linux"
+    }
+}
+
+Then:	terraform apply
+
+### Step 4 — inspect the state
+terraform state list
+terraform_data.vm
+
+terraform.tfstate
+
+### Step 5 — now the fun part
+terraform console
+>
+terraform_data.vm
+input = {
+  "cpu" = 4
+  "environment" = "dev"
+  "ip" = "10.0.1.5"
+  "location" = "uksouth"
+  "memory" = 16
+  "name" = "vm01"
+  "os" = "linux"
+}
+
+terraform_data.vm.input
+terraform_data.vm.input.name
+terraform_data.vm.input.cpu
+terraform_data.vm.input.environment
+terraform_data.vm.output
+local.vms
+
+JSON
+  ↓
+jsondecode()
+  ↓
+local.vms
+  ↓
+for expression
+  ↓
+for_each
+  ↓
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+
+
+Yes — let's keep going from exactly where you are. **Don't redo anything.** We're now moving from the single hard-coded `terraform_data.vm` into the JSON → `for_each` pattern.
+
+## Sprint 1 → Step 4: Read the VM JSON
+
+First, make sure your file is:
+
+Get-Content .\data\vms.json
+
+It should look roughly like:
+
+{
+  "vms": [
+    {
+      "name": "vm01",
+      "size": "Standard_B2s",
+      "location": "uksouth"
+    },
+    {
+      "name": "vm02",
+      "size": "Standard_B2s",
+      "location": "uksouth"
+    }
+  ]
+}
+
+Your `locals.tf` is already doing this:
+
+locals {
+
+  vms = jsondecode(
+    file("${path.module}/data/vms.json")
+  )
+
+}
+
+terraform console
+>
+local.vms
+local.vms.vms
+Notice the distinction:	local.vms
+is the whole JSON object:
+{
+  vms = [...]
+}
+whereas:
+local.vms.vms
+is the actual list of VMs.
+
+
+# Step 5 — Convert the list into a map
+This is an important Terraform pattern. Currently we have: local.vms.vms
+
+[
+  {
+    name = "vm01"
+    ...
+  },
+  {
+    name = "vm02"
+    ...
+  }
+]
+
+But `for_each` works particularly well with a **map keyed by something meaningful**.
+
+Add this to `locals.tf`:
+
+locals {
+
+  vms = jsondecode(
+    file("${path.module}/data/vms.json")
+  )
+
+  vm_map = {
+    for vm in local.vms.vms :
+    vm.name => vm
+  }
+
+}
+
+terraform fmt
+
+terraform console
+
+local.vm_map
+
+
+Now try:	keys(local.vm_map)
+
+> keys(local.vm_map)
+[
+  "vm01",
+  "vm02",
+]
+
+> values(local.vm_map)
+[
+  {
+    "location" = "uksouth"
+    "name" = "vm01"
+    "size" = "Standard_B2s"
+  },
+  {
+    "location" = "uksouth"
+    "name" = "vm02"
+    "size" = "Standard_B2s"
+  },
+]
+
+
+
+# Step 6 — Replace the hard-coded VM
+
+Now we get to the important Terraform expression.
+
+Change main.tf from the single VM to:
+
+resource "terraform_data" "vm" {
+
+  for_each = local.vm_map
+
+  input = each.value
+
+}
+
+
+So Terraform will conceptually create:
+
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+
+instead of:
+
+terraform_data.vm
+
+Run:
+
+terraform fmt
+terraform validate
+terraform plan
+
+You'll notice Terraform wants to **destroy the old**:
+terraform_data.vm
+
+and create:
+
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+
+That's expected because we've changed the resource addressing model.
+
+terraform apply
+
+---
+
+# Step 7 — Inspect the resources
+
+terraform state list
+
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+
+# Step 8 — Explore them in `terraform console`
+
+terraform console
+
+terraform_data.vm
+You'll get a **map of resources**.
+
+keys(terraform_data.vm)
+
+values(terraform_data.vm)
+
+terraform_data.vm["vm01"]
+
+terraform_data.vm["vm01"].output
+
+terraform_data.vm["vm01"].output.name
+
+terraform_data.vm
+        │
+        ├── ["vm01"]
+        │      └── output
+        │           └── name
+        │
+        └── ["vm02"]
+               └── output
+                    └── name
+
+
+# Step 9 — Start learning for expressions
+
+[for vm in values(terraform_data.vm) : vm.output.name]
+
+[
+  "vm01",
+  "vm02",
+]
+
+[for vm in values(terraform_data.vm) : vm.output.location]
+
+[for vm in values(terraform_data.vm) : upper(vm.output.name)]
+
+[
+  "VM01",
+  "VM02",
+]
+
+That's Terraform's expression language starting to become much more like a programming language.
+
+# Step 10 — Your first filtering exercise
+
+> Return only VMs whose location is `uksouth`.
+
+[
+  for vm in values(terraform_data.vm) :
+  vm.output.name
+  if vm.output.location == "uksouth"
+]
+
+
+### Where we've now got to
+
+JSON
+ ▼
+jsondecode()
+ ▼
+local.vms
+ ▼
+for expression
+ ▼
+local.vm_map
+ ▼
+for_each
+ ▼
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+ ▼
+terraform console
+ │
+ ├── keys()
+ ├── values()
+ ├── for
+ ├── if
+ └── attribute access
+
+**Next logical step is `count` vs `for_each`, then maps/lists/objects in depth.** That's where the lab starts getting substantially more useful for Terraform interviews.

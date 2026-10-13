@@ -1,0 +1,109 @@
+Terraform Engineering Lab sprint programme
+terraform_data is a real Terraform resource and therefore creates real Terraform state, but it does not create an Azure resource. That's exactly what we want for the first part of the lab.
+
+### Recommended sprint progression
+
+I'd structure the 50 exercises roughly like this:
+
+| Sprint | Focus                              | Main Terraform concepts                          |
+| ------ | ---------------------------------- | ------------------------------------------------ |
+| 1      | Terraform fundamentals             | `init`, `plan`, `apply`, state, `terraform_data` |
+| 2      | Variables                          | types, defaults, validation, sensitive           |
+| 3      | Lists & tuples                     | indexing, slicing, `for`                         |
+| 4      | Maps & objects                     | lookup, keys, values                             |
+| 5      | `for` expressions                  | filtering, transformation                        |
+| 6      | `for_each`                         | resource collections                             |
+| 7      | `count`                            | conditional/multiple resources                   |
+| 8      | `locals`                           | reusable expressions                             |
+| 9      | Functions                          | `merge`, `flatten`, `zipmap`, etc.               |
+| 10     | Strings                            | interpolation, `format`, `replace`, `regex`      |
+| 11     | JSON/YAML                          | `jsondecode`, `jsonencode`, `yamldecode`         |
+| 12     | CSV/data files                     | `csvdecode`, external inventory                  |
+| 13     | Relationships                      | nested objects and references                    |
+| 14     | Dependencies                       | implicit/explicit dependencies                   |
+| 15     | State                              | inspection, addressing, lifecycle                |
+| 16     | `terraform console`                | expression laboratory                            |
+| 17     | Dynamic structures                 | nested `for`, `flatten`                          |
+| 18     | CIDR/networking                    | `cidrsubnet`, `cidrhost`                         |
+| 19     | Modules                            | inputs/outputs                                   |
+| 20     | Module composition                 | network → compute → storage                      |
+| 21     | Tags/configuration                 | common + application-specific maps               |
+| 22     | Conditional infrastructure         | `if`, ternary, conditional resources             |
+| 23     | Advanced collections               | sets, maps of objects, nested structures         |
+| 24     | Data transformation                | JSON → Terraform objects                         |
+| 25     | Enterprise inventory               | VM/storage/network inventory                     |
+| 26–35  | Realistic infrastructure modelling | Azure estate without Azure                       |
+| 36–40  | Advanced expressions               | complex transformations                          |
+| 41–45  | Interview challenges               | solve from requirements                          |
+| 46–50  | Capstone                           | complete enterprise estate                       |
+
+### And I would make every sprint follow the same pattern
+
+SPRINT X
+│
+├── Objective
+├── Concepts
+├── Files to create
+├── Step 1
+├── Step 2
+├── Step 3
+├── terraform plan
+├── terraform apply
+├── terraform console
+├── Exercise
+├── Expected result
+├── Challenge
+├── Interview questions
+└── Solution
+
+That gives you something much more useful than simply reading Terraform documentation.
+
+### One thing I'd change in the original plan
+
+Don't jump too quickly to the **35 VM / 20 storage / AKS / SQL / RBAC** estate.
+
+We should deliberately build it up.
+
+For example:
+
+Sprint 1
+terraform_data.vm["vm01"]
+        ↓
+Sprint 5
+terraform_data.vm["vm01"]
+terraform_data.vm["vm02"]
+        ↓
+Sprint 10
+VMs
+ └── subnet
+      └── VNet
+        ↓
+Sprint 15
+dev
+ ├── VNet
+ │   ├── frontend
+ │   ├── backend
+ │   └── database
+ └── VMs
+        ↓
+Sprint 25
+dev / test / prod
+ ├── VNets
+ ├── subnets
+ ├── VMs
+ ├── storage
+ ├── SQL
+ └── Key Vault
+        ↓
+Sprint 50
+enterprise Terraform model
+
+
+That way, when we eventually write something like:
+
+for_each = {
+  for vm in local.vms :
+  "${vm.environment}-${vm.name}" => vm
+}
+
+Your current `C:\practice\terraform` directory can therefore be the starting point for **Sprint 1**.
